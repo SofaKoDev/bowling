@@ -1,23 +1,57 @@
 import {
-  ALLEY_PALETTE,
   APPROACH_MAX_Y,
   APPROACH_MIN_Y,
   BALL_MAX_X,
+  DEFAULT_SCENE_ID,
   FOUL_LINE_Y,
   LANE_ARROWS_Y,
   LANE_HALF_WIDTH,
   PIN_DECK_BACK_Y,
   PIN_DECK_FRONT_Y,
+  getSceneConfig,
 } from './catalog.js';
 
-const CONFETTI_COLORS = ['#ff6b57', '#ffd166', '#4ecdc4', '#5c9eff', '#b388ff', '#7ae582'];
+// Deterministic starfield for the Cosmic Alley backdrop
+const COSMIC_STARS = Array.from({ length: 72 }, (_, i) => {
+  const s1 = Math.sin(i * 127.1 + 311.7) * 43758.5453;
+  const s2 = Math.sin(i * 269.5 + 183.3) * 43758.5453;
+  const s3 = Math.sin(i * 419.2 + 71.9) * 43758.5453;
+  const rx = s1 - Math.floor(s1);
+  const ry = s2 - Math.floor(s2);
+  const r3 = s3 - Math.floor(s3);
+  return {
+    x: rx,
+    y: ry * 0.88,
+    radius: 0.9 + r3 * 2.1,
+    speed: 1.1 + (i % 5) * 0.55,
+    phase: r3 * Math.PI * 2,
+    sparkle: i % 9 === 0,
+    color: i % 4 === 0 ? '#8ef7ff' : i % 4 === 1 ? '#ffb3f6' : i % 4 === 2 ? '#fff4b8' : '#ffffff',
+  };
+});
+
+// Subtle glowing constellation dots embedded on the cosmic lane
+const COSMIC_LANE_SPARKLES = Array.from({ length: 22 }, (_, i) => {
+  const s1 = Math.sin(i * 91.7 + 19.3) * 19381.123;
+  const s2 = Math.sin(i * 173.3 + 53.7) * 28173.456;
+  const rx = s1 - Math.floor(s1);
+  const ry = s2 - Math.floor(s2);
+  return {
+    x: (rx * 2 - 1) * 0.86,
+    y: 0.35 + ry * (FOUL_LINE_Y - 0.65),
+    size: 1.2 + (i % 3) * 0.7,
+    phase: rx * Math.PI * 2,
+    color: i % 2 === 0 ? '#00f5ff' : '#ff4fe0',
+  };
+});
 
 export function createConfettiSystem() {
   return { particles: [] };
 }
 
-export function spawnConfetti(system, count = 42, originX = 0.5, originY = 0.32) {
+export function spawnConfetti(system, count = 42, originX = 0.5, originY = 0.32, sceneId = DEFAULT_SCENE_ID) {
   if (!system) return;
+  const colors = getSceneConfig(sceneId).palette.confetti;
   for (let i = 0; i < count; i++) {
     const angle = -Math.PI / 2 + (Math.random() - 0.5) * Math.PI * 1.4;
     const speed = 120 + Math.random() * 280;
@@ -29,7 +63,7 @@ export function spawnConfetti(system, count = 42, originX = 0.5, originY = 0.32)
       size: 6 + Math.random() * 7,
       rot: Math.random() * Math.PI * 2,
       vrot: (Math.random() - 0.5) * 10,
-      color: CONFETTI_COLORS[i % CONFETTI_COLORS.length],
+      color: colors[i % colors.length],
       age: 0,
       life: 1.5 + Math.random() * 0.9,
       initialized: false,
@@ -123,48 +157,174 @@ export function screenToApproach(sx, sy, geo) {
   return { x, y };
 }
 
-function drawBackdrop(ctx, geo) {
+function drawBackdrop(ctx, geo, theme, time) {
+  const { palette, isCosmic } = theme;
   const grad = ctx.createLinearGradient(0, 0, 0, geo.height);
-  grad.addColorStop(0, ALLEY_PALETTE.backdropTop);
-  grad.addColorStop(0.55, ALLEY_PALETTE.backdropMid);
-  grad.addColorStop(1, '#1d2236');
+  grad.addColorStop(0, palette.backdropTop);
+  grad.addColorStop(0.55, palette.backdropMid);
+  grad.addColorStop(1, palette.backdropBottom);
   ctx.fillStyle = grad;
   ctx.fillRect(0, 0, geo.width, geo.height);
 
-  // Warm overhead alley glow
-  const glow = ctx.createRadialGradient(
-    geo.centerX,
-    geo.topY + 40,
-    10,
-    geo.centerX,
-    geo.topY + 90,
-    geo.bottomHalfW * 1.45,
-  );
-  glow.addColorStop(0, 'rgba(255, 224, 150, 0.22)');
-  glow.addColorStop(1, 'rgba(255, 224, 150, 0)');
-  ctx.fillStyle = glow;
-  ctx.fillRect(0, 0, geo.width, geo.height);
+  if (isCosmic) {
+    // Soft pulsing cosmic nebula clouds
+    const pulse = 0.5 + 0.5 * Math.sin(time * 0.8);
+    const leftNebula = ctx.createRadialGradient(
+      geo.width * 0.14,
+      geo.height * 0.24,
+      10,
+      geo.width * 0.14,
+      geo.height * 0.24,
+      Math.max(geo.width, geo.height) * 0.45,
+    );
+    leftNebula.addColorStop(0, `rgba(255, 43, 214, ${0.18 + pulse * 0.06})`);
+    leftNebula.addColorStop(1, 'rgba(255, 43, 214, 0)');
+    ctx.fillStyle = leftNebula;
+    ctx.fillRect(0, 0, geo.width, geo.height);
+
+    const rightNebula = ctx.createRadialGradient(
+      geo.width * 0.86,
+      geo.height * 0.28,
+      10,
+      geo.width * 0.86,
+      geo.height * 0.28,
+      Math.max(geo.width, geo.height) * 0.48,
+    );
+    rightNebula.addColorStop(0, `rgba(0, 245, 255, ${0.16 + (1 - pulse) * 0.06})`);
+    rightNebula.addColorStop(1, 'rgba(0, 245, 255, 0)');
+    ctx.fillStyle = rightNebula;
+    ctx.fillRect(0, 0, geo.width, geo.height);
+
+    // Twinkling starfield across the space backdrop
+    ctx.save();
+    for (const star of COSMIC_STARS) {
+      const sx = star.x * geo.width;
+      const sy = star.y * geo.height;
+      const twinkle = 0.35 + 0.65 * (0.5 + 0.5 * Math.sin(time * star.speed + star.phase));
+      ctx.globalAlpha = twinkle;
+      ctx.fillStyle = star.color;
+      if (star.sparkle) {
+        const s = star.radius * 2.2;
+        ctx.beginPath();
+        ctx.moveTo(sx, sy - s);
+        ctx.quadraticCurveTo(sx, sy, sx + s, sy);
+        ctx.quadraticCurveTo(sx, sy, sx, sy + s);
+        ctx.quadraticCurveTo(sx, sy, sx - s, sy);
+        ctx.quadraticCurveTo(sx, sy, sx, sy - s);
+        ctx.fill();
+      } else {
+        ctx.beginPath();
+        ctx.arc(sx, sy, star.radius, 0, Math.PI * 2);
+        ctx.fill();
+      }
+    }
+    ctx.restore();
+
+    // Sweeping cosmic blacklight laser cones from the pinsetter ceiling
+    ctx.save();
+    const beamOriginY = Math.max(0, geo.topY - 45);
+    const beams = [
+      { ox: geo.centerX - geo.topHalfW * 0.85, angle: 0.36 + Math.sin(time * 0.65) * 0.22, color: '0, 245, 255' },
+      { ox: geo.centerX + geo.topHalfW * 0.85, angle: -0.36 + Math.cos(time * 0.58) * 0.22, color: '255, 43, 214' },
+    ];
+    for (const beam of beams) {
+      const len = geo.height * 0.72;
+      const spread = 0.16;
+      const x1 = beam.ox + Math.sin(beam.angle - spread) * len;
+      const y1 = beamOriginY + Math.cos(beam.angle - spread) * len;
+      const x2 = beam.ox + Math.sin(beam.angle + spread) * len;
+      const y2 = beamOriginY + Math.cos(beam.angle + spread) * len;
+      const bGrad = ctx.createLinearGradient(beam.ox, beamOriginY, (x1 + x2) * 0.5, (y1 + y2) * 0.5);
+      bGrad.addColorStop(0, `rgba(${beam.color}, 0.17)`);
+      bGrad.addColorStop(1, `rgba(${beam.color}, 0)`);
+      ctx.fillStyle = bGrad;
+      ctx.beginPath();
+      ctx.moveTo(beam.ox, beamOriginY);
+      ctx.lineTo(x1, y1);
+      ctx.lineTo(x2, y2);
+      ctx.closePath();
+      ctx.fill();
+    }
+    ctx.restore();
+
+    // Ultraviolet overhead glow above the pin deck
+    const uvGlow = ctx.createRadialGradient(
+      geo.centerX,
+      geo.topY + 36,
+      10,
+      geo.centerX,
+      geo.topY + 95,
+      geo.bottomHalfW * 1.55,
+    );
+    uvGlow.addColorStop(0, 'rgba(130, 80, 255, 0.34)');
+    uvGlow.addColorStop(0.5, 'rgba(0, 245, 255, 0.1)');
+    uvGlow.addColorStop(1, 'rgba(130, 80, 255, 0)');
+    ctx.fillStyle = uvGlow;
+    ctx.fillRect(0, 0, geo.width, geo.height);
+  } else {
+    // Warm overhead alley glow
+    const glow = ctx.createRadialGradient(
+      geo.centerX,
+      geo.topY + 40,
+      10,
+      geo.centerX,
+      geo.topY + 90,
+      geo.bottomHalfW * 1.45,
+    );
+    glow.addColorStop(0, 'rgba(255, 224, 150, 0.22)');
+    glow.addColorStop(1, 'rgba(255, 224, 150, 0)');
+    ctx.fillStyle = glow;
+    ctx.fillRect(0, 0, geo.width, geo.height);
+  }
 
   // Pinsetter hood / pit arch at the far end
   const backL = laneToScreen(-1.18, PIN_DECK_BACK_Y, geo);
   const backR = laneToScreen(1.18, PIN_DECK_BACK_Y, geo);
   const hoodH = Math.max(36, geo.topHalfW * 0.42);
 
-  ctx.fillStyle = '#181c2b';
+  ctx.fillStyle = palette.hoodFill;
   ctx.beginPath();
   ctx.roundRect(backL.sx - 8, backL.sy - hoodH, backR.sx - backL.sx + 16, hoodH + 14, [18, 18, 4, 4]);
   ctx.fill();
 
-  // Warm neon accent bar on the pinsetter hood
-  ctx.strokeStyle = '#ff9d7a';
-  ctx.lineWidth = 3;
-  ctx.beginPath();
-  ctx.moveTo(backL.sx + 10, backL.sy - hoodH + 12);
-  ctx.lineTo(backR.sx - 10, backL.sy - hoodH + 12);
-  ctx.stroke();
+  if (isCosmic) {
+    // Glowing neon arch trim on the cosmic pinsetter hood
+    ctx.save();
+    ctx.strokeStyle = 'rgba(0, 245, 255, 0.55)';
+    ctx.lineWidth = 2;
+    ctx.stroke();
+
+    ctx.shadowColor = palette.hoodAccent;
+    ctx.shadowBlur = 14;
+    ctx.strokeStyle = palette.hoodAccent;
+    ctx.lineWidth = 3.2;
+    ctx.beginPath();
+    ctx.moveTo(backL.sx + 10, backL.sy - hoodH + 11);
+    ctx.lineTo(backR.sx - 10, backL.sy - hoodH + 11);
+    ctx.stroke();
+
+    ctx.shadowColor = palette.hoodAccent2;
+    ctx.shadowBlur = 12;
+    ctx.strokeStyle = palette.hoodAccent2;
+    ctx.lineWidth = 2.4;
+    ctx.beginPath();
+    ctx.moveTo(backL.sx + 20, backL.sy - hoodH + 20);
+    ctx.lineTo(backR.sx - 20, backL.sy - hoodH + 20);
+    ctx.stroke();
+    ctx.restore();
+  } else {
+    // Warm neon accent bar on the pinsetter hood
+    ctx.strokeStyle = palette.hoodAccent;
+    ctx.lineWidth = 3;
+    ctx.beginPath();
+    ctx.moveTo(backL.sx + 10, backL.sy - hoodH + 12);
+    ctx.lineTo(backR.sx - 10, backL.sy - hoodH + 12);
+    ctx.stroke();
+  }
 }
 
-function drawLaneSurface(ctx, geo, state) {
+function drawLaneSurface(ctx, geo, state, theme, time) {
+  const { palette, isCosmic } = theme;
   const pTopL = laneToScreen(-LANE_HALF_WIDTH, PIN_DECK_BACK_Y, geo);
   const pTopR = laneToScreen(LANE_HALF_WIDTH, PIN_DECK_BACK_Y, geo);
   const pFoulL = laneToScreen(-LANE_HALF_WIDTH, FOUL_LINE_Y, geo);
@@ -178,7 +338,7 @@ function drawLaneSurface(ctx, geo, state) {
   const gFoulL = laneToScreen(-1.16, FOUL_LINE_Y, geo);
   const gFoulR = laneToScreen(1.16, FOUL_LINE_Y, geo);
 
-  ctx.fillStyle = ALLEY_PALETTE.gutterBg;
+  ctx.fillStyle = palette.gutterBg;
   ctx.beginPath();
   ctx.moveTo(gTopL.sx, gTopL.sy);
   ctx.lineTo(gTopR.sx, gTopR.sy);
@@ -187,11 +347,11 @@ function drawLaneSurface(ctx, geo, state) {
   ctx.closePath();
   ctx.fill();
 
-  // Main wooden lane (from pin deck to foul line)
+  // Main lane surface (from pin deck to foul line)
   const woodGrad = ctx.createLinearGradient(0, pTopL.sy, 0, pFoulL.sy);
-  woodGrad.addColorStop(0, ALLEY_PALETTE.woodDark);
-  woodGrad.addColorStop(0.25, ALLEY_PALETTE.woodMid);
-  woodGrad.addColorStop(1, ALLEY_PALETTE.woodLight);
+  woodGrad.addColorStop(0, palette.woodDark);
+  woodGrad.addColorStop(0.25, palette.woodMid);
+  woodGrad.addColorStop(1, palette.woodLight);
 
   ctx.fillStyle = woodGrad;
   ctx.beginPath();
@@ -202,10 +362,10 @@ function drawLaneSurface(ctx, geo, state) {
   ctx.closePath();
   ctx.fill();
 
-  // Approach Zone (behind foul line, visually distinct warm deck)
+  // Approach Zone (behind foul line, visually distinct deck)
   const appGrad = ctx.createLinearGradient(0, pFoulL.sy, 0, pBotL.sy);
-  appGrad.addColorStop(0, ALLEY_PALETTE.approachLight);
-  appGrad.addColorStop(1, ALLEY_PALETTE.approachDark);
+  appGrad.addColorStop(0, palette.approachLight);
+  appGrad.addColorStop(1, palette.approachDark);
 
   ctx.fillStyle = appGrad;
   ctx.beginPath();
@@ -216,9 +376,9 @@ function drawLaneSurface(ctx, geo, state) {
   ctx.closePath();
   ctx.fill();
 
-  // Subtle wood plank seams running down the lane
-  ctx.strokeStyle = ALLEY_PALETTE.woodSeam;
-  ctx.lineWidth = 1.25;
+  // Subtle plank seams / cosmic neon lane guide lines
+  ctx.strokeStyle = palette.woodSeam;
+  ctx.lineWidth = isCosmic ? 1.35 : 1.25;
   const plankCount = 12;
   for (let i = 1; i < plankCount; i++) {
     const lx = -LANE_HALF_WIDTH + (i / plankCount) * (LANE_HALF_WIDTH * 2);
@@ -230,10 +390,26 @@ function drawLaneSurface(ctx, geo, state) {
     ctx.stroke();
   }
 
+  // Cosmic glow-in-the-dark inlaid lane sparkles
+  if (isCosmic) {
+    ctx.save();
+    for (const dot of COSMIC_LANE_SPARKLES) {
+      const pt = laneToScreen(dot.x, dot.y, geo);
+      const glowAlpha = 0.22 + 0.35 * (0.5 + 0.5 * Math.sin(time * 2.1 + dot.phase));
+      ctx.globalAlpha = glowAlpha;
+      ctx.fillStyle = dot.color;
+      const r = Math.max(1.2, dot.size * (pt.scale / 180 + 0.45));
+      ctx.beginPath();
+      ctx.arc(pt.sx, pt.sy, r, 0, Math.PI * 2);
+      ctx.fill();
+    }
+    ctx.restore();
+  }
+
   // Subtle pin deck highlight
   const pdFrontL = laneToScreen(-LANE_HALF_WIDTH, PIN_DECK_FRONT_Y, geo);
   const pdFrontR = laneToScreen(LANE_HALF_WIDTH, PIN_DECK_FRONT_Y, geo);
-  ctx.fillStyle = 'rgba(255, 250, 235, 0.18)';
+  ctx.fillStyle = isCosmic ? 'rgba(0, 245, 255, 0.12)' : 'rgba(255, 250, 235, 0.18)';
   ctx.beginPath();
   ctx.moveTo(pTopL.sx, pTopL.sy);
   ctx.lineTo(pTopR.sx, pTopR.sy);
@@ -242,8 +418,13 @@ function drawLaneSurface(ctx, geo, state) {
   ctx.closePath();
   ctx.fill();
 
-  // Classic 7 bowling arrows
-  ctx.fillStyle = ALLEY_PALETTE.arrowFill;
+  // Classic 7 bowling arrows (glowing neon cyan in Cosmic mode)
+  ctx.save();
+  ctx.fillStyle = palette.arrowFill;
+  if (isCosmic) {
+    ctx.shadowColor = palette.arrowGlow;
+    ctx.shadowBlur = 12;
+  }
   for (let i = -3; i <= 3; i++) {
     const ax = i * 0.24;
     const ay = LANE_ARROWS_Y - (3 - Math.abs(i)) * 0.11;
@@ -257,22 +438,36 @@ function drawLaneSurface(ctx, geo, state) {
     ctx.closePath();
     ctx.fill();
   }
+  ctx.restore();
 
   // Bright Foul / Lane Line separating the lane from the Approach Zone
   ctx.save();
-  ctx.strokeStyle = ALLEY_PALETTE.foulLineGlow;
-  ctx.lineWidth = 12;
+  ctx.strokeStyle = palette.foulLineGlow;
+  ctx.lineWidth = isCosmic ? 15 : 12;
   ctx.beginPath();
   ctx.moveTo(gFoulL.sx, gFoulL.sy);
   ctx.lineTo(gFoulR.sx, gFoulR.sy);
   ctx.stroke();
 
-  ctx.strokeStyle = ALLEY_PALETTE.foulLine;
+  if (isCosmic) {
+    ctx.shadowColor = palette.foulLine;
+    ctx.shadowBlur = 14;
+  }
+  ctx.strokeStyle = palette.foulLine;
   ctx.lineWidth = 4.5;
   ctx.beginPath();
   ctx.moveTo(gFoulL.sx, gFoulL.sy);
   ctx.lineTo(gFoulR.sx, gFoulR.sy);
   ctx.stroke();
+
+  if (isCosmic) {
+    ctx.strokeStyle = 'rgba(255, 220, 250, 0.85)';
+    ctx.lineWidth = 1.5;
+    ctx.beginPath();
+    ctx.moveTo(gFoulL.sx, gFoulL.sy);
+    ctx.lineTo(gFoulR.sx, gFoulR.sy);
+    ctx.stroke();
+  }
   ctx.restore();
 
   // Soft hint inside the approach zone when aiming on frame 1 roll 1
@@ -281,13 +476,18 @@ function drawLaneSurface(ctx, geo, state) {
     ctx.save();
     ctx.font = '700 13px ui-rounded, system-ui, sans-serif';
     ctx.textAlign = 'center';
-    ctx.fillStyle = 'rgba(92, 54, 24, 0.65)';
+    ctx.fillStyle = palette.hintText;
+    if (isCosmic) {
+      ctx.shadowColor = 'rgba(0, 245, 255, 0.55)';
+      ctx.shadowBlur = 8;
+    }
     ctx.fillText('DRAG HERE & FLICK UP TO ROLL!', hintPos.sx, hintPos.sy);
     ctx.restore();
   }
 }
 
-function drawBumperRail(ctx, geo, side, bumperState) {
+function drawBumperRail(ctx, geo, side, bumperState, theme) {
+  const { palette, isCosmic } = theme;
   const isLeft = side === 'left';
   const sign = isLeft ? -1 : 1;
   const hitTimer = bumperState ? bumperState.hitTimer : 0;
@@ -323,10 +523,15 @@ function drawBumperRail(ctx, geo, side, bumperState) {
   for (let i = segments; i >= 0; i--) ctx.lineTo(outerPts[i].sx, outerPts[i].sy);
   ctx.closePath();
 
-  ctx.fillStyle = hitGlow > 0.2 ? ALLEY_PALETTE.bumperGlow : ALLEY_PALETTE.bumperBase;
+  const fillColor = hitGlow > 0.2 ? palette.bumperGlow : palette.bumperBase;
+  if (isCosmic) {
+    ctx.shadowColor = fillColor;
+    ctx.shadowBlur = hitGlow > 0.2 ? 22 : 14;
+  }
+  ctx.fillStyle = fillColor;
   ctx.fill();
-  ctx.strokeStyle = 'rgba(255, 255, 255, 0.5)';
-  ctx.lineWidth = 2;
+  ctx.strokeStyle = isCosmic ? 'rgba(255, 255, 255, 0.85)' : 'rgba(255, 255, 255, 0.5)';
+  ctx.lineWidth = isCosmic ? 2.2 : 2;
   ctx.stroke();
 
   // Glowing impact ring on bumper hit
@@ -334,15 +539,16 @@ function drawBumperRail(ctx, geo, side, bumperState) {
     const impact = laneToScreen(sign * LANE_HALF_WIDTH, hitY, geo);
     ctx.beginPath();
     ctx.arc(impact.sx, impact.sy, (16 + (1 - hitGlow) * 26) * (impact.scale / 160 + 0.5), 0, Math.PI * 2);
-    ctx.strokeStyle = `rgba(255, 232, 102, ${hitGlow * 0.9})`;
+    ctx.strokeStyle = `rgba(${palette.bumperHitRing}, ${hitGlow * 0.9})`;
     ctx.lineWidth = 4;
     ctx.stroke();
   }
   ctx.restore();
 }
 
-function drawPin(ctx, pin, geo) {
+function drawPin(ctx, pin, geo, theme) {
   if (pin.cleared) return;
+  const { palette, isCosmic } = theme;
   const p = laneToScreen(pin.x, pin.y, geo);
   const r = Math.max(4.5, pin.radius * p.scale * 1.12);
   const h = r * 4.55;
@@ -350,8 +556,8 @@ function drawPin(ctx, pin, geo) {
   ctx.save();
   ctx.translate(p.sx, p.sy);
 
-  // Ground shadow
-  ctx.fillStyle = 'rgba(35, 24, 15, 0.26)';
+  // Ground shadow (or subtle UV under-glow in cosmic mode)
+  ctx.fillStyle = isCosmic ? 'rgba(0, 245, 255, 0.24)' : 'rgba(35, 24, 15, 0.26)';
   ctx.beginPath();
   ctx.ellipse(0, r * 0.22, r * 0.95, r * 0.38, 0, 0, Math.PI * 2);
   ctx.fill();
@@ -384,20 +590,30 @@ function drawPin(ctx, pin, geo) {
   ctx.closePath();
 
   const bodyGrad = ctx.createLinearGradient(-r * 0.9, 0, r * 0.9, 0);
-  bodyGrad.addColorStop(0, '#f4efe4');
-  bodyGrad.addColorStop(0.28, ALLEY_PALETTE.pinBody);
-  bodyGrad.addColorStop(0.68, '#f7f3ea');
-  bodyGrad.addColorStop(1, '#d8d0c1');
+  if (isCosmic) {
+    bodyGrad.addColorStop(0, '#c8ecff');
+    bodyGrad.addColorStop(0.3, palette.pinBody);
+    bodyGrad.addColorStop(0.7, '#dff6ff');
+    bodyGrad.addColorStop(1, '#9cc4ff');
+    ctx.shadowColor = palette.pinAura;
+    ctx.shadowBlur = 10;
+  } else {
+    bodyGrad.addColorStop(0, '#f4efe4');
+    bodyGrad.addColorStop(0.28, palette.pinBody);
+    bodyGrad.addColorStop(0.68, '#f7f3ea');
+    bodyGrad.addColorStop(1, '#d8d0c1');
+  }
   ctx.fillStyle = bodyGrad;
   ctx.fill();
+  ctx.shadowBlur = 0;
 
   // Clip stripes & glossy highlight cleanly inside the pin silhouette
   ctx.save();
   ctx.clip();
 
-  // Two traditional curved red neck bands
-  ctx.strokeStyle = ALLEY_PALETTE.pinStripe;
-  ctx.lineWidth = Math.max(1.5, h * 0.045);
+  // Two curved neck bands (neon magenta in cosmic mode, classic red in classic mode)
+  ctx.strokeStyle = palette.pinStripe;
+  ctx.lineWidth = Math.max(1.5, h * 0.048);
   for (const bandY of [-h * 0.68, -h * 0.755]) {
     ctx.beginPath();
     ctx.moveTo(-r * 0.5, bandY - r * 0.04);
@@ -406,7 +622,7 @@ function drawPin(ctx, pin, geo) {
   }
 
   // Subtle lacquered specular highlight along left side of belly & head
-  ctx.fillStyle = 'rgba(255, 255, 255, 0.55)';
+  ctx.fillStyle = isCosmic ? 'rgba(255, 255, 255, 0.78)' : 'rgba(255, 255, 255, 0.55)';
   ctx.beginPath();
   ctx.ellipse(-r * 0.32, -h * 0.33, r * 0.16, h * 0.16, 0.12, 0, Math.PI * 2);
   ctx.fill();
@@ -417,36 +633,56 @@ function drawPin(ctx, pin, geo) {
   ctx.restore();
 
   // Crisp subtle outer contour
-  ctx.strokeStyle = 'rgba(72, 56, 40, 0.32)';
+  ctx.strokeStyle = isCosmic ? 'rgba(130, 240, 255, 0.65)' : 'rgba(72, 56, 40, 0.32)';
   ctx.lineWidth = Math.max(1, r * 0.1);
   ctx.stroke();
 
   ctx.restore();
 }
 
-function drawBall(ctx, ball, geo) {
+function drawBall(ctx, ball, geo, theme) {
   if (!ball.active) return;
+  const { palette, isCosmic } = theme;
   const p = laneToScreen(ball.x, ball.y, geo);
   const r = Math.max(10, ball.radius * p.scale);
 
   ctx.save();
   ctx.translate(p.sx, p.sy);
 
-  // Soft shadow on the lane
-  ctx.fillStyle = 'rgba(20, 16, 12, 0.32)';
+  // Soft shadow (or neon cyan under-glow in cosmic mode) on the lane
+  ctx.fillStyle = isCosmic ? 'rgba(0, 245, 255, 0.28)' : 'rgba(20, 16, 12, 0.32)';
   ctx.beginPath();
-  ctx.ellipse(0, r * 0.42, r * 0.98, r * 0.42, 0, 0, Math.PI * 2);
+  ctx.ellipse(0, r * 0.42, r * 1.04, r * 0.44, 0, 0, Math.PI * 2);
   ctx.fill();
 
-  // Ball sphere (classic yellow bowling ball)
+  // Ball sphere
+  if (isCosmic) {
+    ctx.shadowColor = palette.ballAura;
+    ctx.shadowBlur = 20;
+  }
   const grad = ctx.createRadialGradient(-r * 0.32, -r * 0.38, r * 0.12, 0, 0, r);
-  grad.addColorStop(0, ALLEY_PALETTE.ballSwirl);
-  grad.addColorStop(0.55, ALLEY_PALETTE.ballPrimary);
-  grad.addColorStop(1, ALLEY_PALETTE.ballDark);
+  grad.addColorStop(0, palette.ballSwirl);
+  grad.addColorStop(0.55, palette.ballPrimary);
+  grad.addColorStop(1, palette.ballDark);
   ctx.fillStyle = grad;
   ctx.beginPath();
   ctx.arc(0, -r * 0.35, r, 0, Math.PI * 2);
   ctx.fill();
+  ctx.shadowBlur = 0;
+
+  // Cosmic galaxy swirl ring accent
+  if (isCosmic) {
+    ctx.save();
+    ctx.beginPath();
+    ctx.arc(0, -r * 0.35, r, 0, Math.PI * 2);
+    ctx.clip();
+    ctx.strokeStyle = 'rgba(255, 43, 214, 0.36)';
+    ctx.lineWidth = Math.max(2, r * 0.16);
+    ctx.beginPath();
+    ctx.ellipse(r * 0.08, -r * 0.32, r * 0.92, r * 0.34, -0.45 + (ball.spinAngle || 0) * 0.2, 0, Math.PI * 2);
+    ctx.stroke();
+    ctx.restore();
+  }
 
   // Rotating 3 finger holes (visual roll feedback)
   const spin = ball.spinAngle || 0;
@@ -456,7 +692,7 @@ function drawBall(ctx, ball, geo) {
     ctx.save();
     ctx.translate(0, -r * 0.35 + holeOffsetY);
     ctx.globalAlpha = Math.max(0.2, Math.min(1, (holeScale + 0.25) * 0.95));
-    ctx.fillStyle = ALLEY_PALETTE.ballHole;
+    ctx.fillStyle = palette.ballHole;
     const hr = Math.max(2, r * 0.13);
     for (const [hx, hy] of [
       [-r * 0.18, -r * 0.16],
@@ -471,7 +707,7 @@ function drawBall(ctx, ball, geo) {
   }
 
   // Glossy specular highlight
-  ctx.fillStyle = ALLEY_PALETTE.ballHighlight;
+  ctx.fillStyle = palette.ballHighlight;
   ctx.beginPath();
   ctx.ellipse(-r * 0.3, -r * 0.72, r * 0.28, r * 0.16, -0.5, 0, Math.PI * 2);
   ctx.fill();
@@ -479,7 +715,7 @@ function drawBall(ctx, ball, geo) {
   ctx.restore();
 }
 
-function drawAimGuide(ctx, state, geo, dragGuide) {
+function drawAimGuide(ctx, state, geo, dragGuide, theme) {
   if (!dragGuide || !dragGuide.active || state.phase !== 'playing' || state.rollPhase !== 'aiming') return;
   const { ball } = state;
   const vx = dragGuide.aimVx || 0;
@@ -496,6 +732,10 @@ function drawAimGuide(ctx, state, geo, dragGuide) {
   const stepDist = 0.32;
 
   ctx.save();
+  if (theme.isCosmic) {
+    ctx.shadowColor = '#00f5ff';
+    ctx.shadowBlur = 10;
+  }
   for (let i = 1; i <= 14; i++) {
     cx += dirX * stepDist;
     cy += dirY * stepDist;
@@ -508,9 +748,9 @@ function drawAimGuide(ctx, state, geo, dragGuide) {
     }
     if (cy < 1.2) break;
     const pt = laneToScreen(cx, cy, geo);
-    const alpha = Math.max(0.15, 0.85 - i * 0.05);
+    const alpha = Math.max(0.18, 0.9 - i * 0.05);
     const dotR = Math.max(2.5, (7.5 - i * 0.28) * (pt.scale / 180 + 0.45));
-    ctx.fillStyle = `rgba(255, 255, 255, ${alpha})`;
+    ctx.fillStyle = theme.isCosmic ? `rgba(110, 250, 255, ${alpha})` : `rgba(255, 255, 255, ${alpha})`;
     ctx.beginPath();
     ctx.arc(pt.sx, pt.sy, dotR, 0, Math.PI * 2);
     ctx.fill();
@@ -518,7 +758,7 @@ function drawAimGuide(ctx, state, geo, dragGuide) {
   ctx.restore();
 }
 
-function drawPopupsAndConfetti(ctx, state, geo, confetti) {
+function drawPopupsAndConfetti(ctx, state, geo, confetti, theme) {
   if (state.popups && state.popups.length) {
     for (const pop of state.popups) {
       const pt = laneToScreen(pop.x, pop.y, geo);
@@ -529,9 +769,9 @@ function drawPopupsAndConfetti(ctx, state, geo, confetti) {
       ctx.font = '900 22px ui-rounded, system-ui, sans-serif';
       ctx.textAlign = 'center';
       ctx.lineWidth = 4;
-      ctx.strokeStyle = 'rgba(255,255,255,0.95)';
+      ctx.strokeStyle = theme.isCosmic ? 'rgba(10, 4, 32, 0.95)' : 'rgba(255,255,255,0.95)';
       ctx.strokeText(pop.text, pt.sx, pt.sy - rise);
-      ctx.fillStyle = pop.accent || '#ff6b57';
+      ctx.fillStyle = pop.accent || (theme.isCosmic ? '#00f5ff' : '#ff6b57');
       ctx.fillText(pop.text, pt.sx, pt.sy - rise);
       ctx.restore();
     }
@@ -552,15 +792,30 @@ function drawPopupsAndConfetti(ctx, state, geo, confetti) {
   }
 }
 
-export function renderGame(ctx, state, width, height, dragGuide = null, confetti = null) {
+export function renderGame(
+  ctx,
+  state,
+  width,
+  height,
+  dragGuide = null,
+  confetti = null,
+  sceneId = DEFAULT_SCENE_ID,
+  time = 0,
+) {
   ctx.clearRect(0, 0, width, height);
   const geo = getLaneGeometry(width, height);
+  const scene = getSceneConfig(sceneId);
+  const theme = {
+    id: scene.id,
+    palette: scene.palette,
+    isCosmic: scene.id === 'cosmic',
+  };
 
-  drawBackdrop(ctx, geo);
-  drawLaneSurface(ctx, geo, state);
-  drawBumperRail(ctx, geo, 'left', state.bumpers?.left);
-  drawBumperRail(ctx, geo, 'right', state.bumpers?.right);
-  drawAimGuide(ctx, state, geo, dragGuide);
+  drawBackdrop(ctx, geo, theme, time);
+  drawLaneSurface(ctx, geo, state, theme, time);
+  drawBumperRail(ctx, geo, 'left', state.bumpers?.left, theme);
+  drawBumperRail(ctx, geo, 'right', state.bumpers?.right, theme);
+  drawAimGuide(ctx, state, geo, dragGuide, theme);
 
   // Depth-sort pins + ball back-to-front (smaller y = farther away)
   const drawables = [];
@@ -573,9 +828,9 @@ export function renderGame(ctx, state, width, height, dragGuide = null, confetti
   drawables.sort((a, b) => a.y - b.y);
 
   for (const d of drawables) {
-    if (d.kind === 'pin') drawPin(ctx, d.item, geo);
-    else drawBall(ctx, d.item, geo);
+    if (d.kind === 'pin') drawPin(ctx, d.item, geo, theme);
+    else drawBall(ctx, d.item, geo, theme);
   }
 
-  drawPopupsAndConfetti(ctx, state, geo, confetti);
+  drawPopupsAndConfetti(ctx, state, geo, confetti, theme);
 }

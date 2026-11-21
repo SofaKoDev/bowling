@@ -367,7 +367,244 @@ body,
   line-height: 1.4;
 }
 
+/* Scene Picker (Classic vs Cosmic) */
+.scene-picker {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+  margin: 0 0 18px;
+}
+
+.scene-picker-compact {
+  margin-bottom: 14px;
+}
+
+.scene-option {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px;
+  border-radius: 16px;
+  border: 2.5px solid #e6dac3;
+  background: #fffdf8;
+  color: #242f47;
+  font-family: inherit;
+  text-align: left;
+  cursor: pointer;
+  transition: transform 0.14s ease, border-color 0.16s ease, box-shadow 0.16s ease, background 0.16s ease;
+}
+
+.scene-option:active {
+  transform: scale(0.97);
+}
+
+.scene-option.is-selected {
+  border-color: #ff6b57;
+  background: #fff5ea;
+  box-shadow: 0 0 0 3px rgba(255, 107, 87, 0.22), 0 6px 14px rgba(36, 47, 71, 0.12);
+}
+
+.scene-swatch {
+  width: 38px;
+  height: 38px;
+  border-radius: 12px;
+  display: grid;
+  place-items: center;
+  flex-shrink: 0;
+  position: relative;
+  overflow: hidden;
+  border: 2px solid rgba(255, 255, 255, 0.85);
+}
+
+.scene-swatch-classic {
+  background: linear-gradient(155deg, #2b3554 0%, #e6be7c 58%, #ff6b57 100%);
+  box-shadow: 0 4px 10px rgba(201, 142, 20, 0.28);
+}
+
+.scene-swatch-cosmic {
+  background: radial-gradient(circle at 28% 25%, #00f5ff 0%, #3b148a 48%, #090422 100%);
+  box-shadow: 0 4px 12px rgba(0, 245, 255, 0.35);
+}
+
+.scene-swatch-icon {
+  font-size: 19px;
+  line-height: 1;
+  filter: drop-shadow(0 1px 3px rgba(0, 0, 0, 0.35));
+}
+
+.scene-meta {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+
+.scene-meta strong {
+  font-size: 13px;
+  font-weight: 900;
+  line-height: 1.15;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.scene-meta small {
+  font-size: 11px;
+  font-weight: 700;
+  color: #6b768f;
+  line-height: 1.2;
+  margin-top: 2px;
+}
+
+/* Cosmic Alley UI Theme */
+.bowling-app[data-scene='cosmic'] .scoreboard {
+  background: rgba(14, 7, 40, 0.88);
+  border-color: rgba(0, 245, 255, 0.65);
+  box-shadow: 0 8px 28px rgba(0, 0, 0, 0.55), 0 0 18px rgba(0, 245, 255, 0.2);
+}
+
+.bowling-app[data-scene='cosmic'] .frame-cell {
+  background: rgba(25, 14, 66, 0.92);
+  border-color: rgba(130, 92, 255, 0.48);
+}
+
+.bowling-app[data-scene='cosmic'] .frame-cell.active {
+  border-color: #00f5ff;
+  box-shadow: 0 0 0 2px rgba(0, 245, 255, 0.35), 0 0 12px rgba(0, 245, 255, 0.35);
+}
+
+.bowling-app[data-scene='cosmic'] .frame-num {
+  background: rgba(54, 29, 122, 0.95);
+  color: #b7d8ff;
+}
+
+.bowling-app[data-scene='cosmic'] .frame-cell.active .frame-num {
+  background: linear-gradient(90deg, #ff2bd6, #00d2ff);
+  color: #fff;
+}
+
+.bowling-app[data-scene='cosmic'] .frame-rolls {
+  color: #eaf7ff;
+}
+
+.bowling-app[data-scene='cosmic'] .frame-rolls span.strike {
+  color: #ff4fe0;
+}
+
+.bowling-app[data-scene='cosmic'] .frame-rolls span.spare {
+  color: #00f5ff;
+}
+
+.bowling-app[data-scene='cosmic'] .frame-total {
+  color: #ffffff;
+}
+
+.bowling-app[data-scene='cosmic'] .hud-actions button,
+.bowling-app[data-scene='cosmic'] .hud-actions a {
+  background: rgba(18, 9, 52, 0.9);
+  color: #eaf7ff;
+  border: 1.5px solid rgba(0, 245, 255, 0.5);
+  box-shadow: 0 6px 18px rgba(0, 0, 0, 0.45), 0 0 12px rgba(0, 245, 255, 0.18);
+}
+
+.bowling-app[data-scene='cosmic'] .overlay {
+  background: rgba(6, 3, 24, 0.62);
+}
+
+.bowling-app[data-scene='cosmic'] .card {
+  background: linear-gradient(165deg, #190e44 0%, #10072d 100%);
+  color: #f3f9ff;
+  border-color: rgba(0, 245, 255, 0.72);
+  box-shadow: 0 20px 55px rgba(0, 0, 0, 0.65), 0 0 32px rgba(0, 245, 255, 0.22);
+}
+
+.bowling-app[data-scene='cosmic'] .logo-ball {
+  background: radial-gradient(circle at 30% 28%, #a8fffd, #00c8ff 56%, #5b1cff);
+  box-shadow: 0 0 24px rgba(0, 245, 255, 0.58);
+}
+
+.bowling-app[data-scene='cosmic'] .logo-ball::before,
+.bowling-app[data-scene='cosmic'] .logo-ball::after {
+  background: #140836;
+}
+
+.bowling-app[data-scene='cosmic'] .logo-ball::before {
+  box-shadow: 11px 2px 0 #140836;
+}
+
+.bowling-app[data-scene='cosmic'] .kicker {
+  color: #00f5ff;
+}
+
+.bowling-app[data-scene='cosmic'] .subtitle,
+.bowling-app[data-scene='cosmic'] .controls-hint {
+  color: #b7c6eb;
+}
+
+.bowling-app[data-scene='cosmic'] .big-score {
+  color: #00f5ff;
+  text-shadow: 0 0 18px rgba(0, 245, 255, 0.45);
+}
+
+.bowling-app[data-scene='cosmic'] .btn-primary {
+  background: linear-gradient(180deg, #ff3be0, #c81bb8);
+  box-shadow: 0 6px 0 #84107c, 0 10px 24px rgba(255, 43, 214, 0.42);
+}
+
+.bowling-app[data-scene='cosmic'] .btn-primary:active {
+  box-shadow: 0 3px 0 #84107c;
+}
+
+.bowling-app[data-scene='cosmic'] .btn-secondary {
+  background: rgba(0, 245, 255, 0.14);
+  color: #9bf8ff;
+  border: 1.5px solid rgba(0, 245, 255, 0.4);
+}
+
+.bowling-app[data-scene='cosmic'] .btn-ghost {
+  color: #a9b9e6;
+}
+
+.bowling-app[data-scene='cosmic'] .btn-ghost:hover {
+  color: #ffffff;
+}
+
+.bowling-app[data-scene='cosmic'] .scene-option {
+  background: rgba(31, 17, 82, 0.85);
+  border-color: rgba(138, 102, 255, 0.45);
+  color: #f3f9ff;
+}
+
+.bowling-app[data-scene='cosmic'] .scene-meta small {
+  color: #a9b9e6;
+}
+
+.bowling-app[data-scene='cosmic'] .scene-option.is-selected {
+  border-color: #00f5ff;
+  background: rgba(0, 245, 255, 0.14);
+  box-shadow: 0 0 0 3px rgba(0, 245, 255, 0.25), 0 0 18px rgba(0, 245, 255, 0.28);
+}
+
+.bowling-app[data-scene='cosmic'] .celebration-banner:not(.is-turkey) {
+  background: linear-gradient(135deg, #ff2bd6, #00c8ff);
+  border-color: #e6ffff;
+  box-shadow: 0 12px 34px rgba(0, 0, 0, 0.5), 0 0 24px rgba(0, 245, 255, 0.45);
+}
+
 @media (max-width: 640px) {
+  .scene-picker {
+    gap: 8px;
+  }
+
+  .scene-option {
+    padding: 8px;
+    gap: 8px;
+  }
+
+  .scene-swatch {
+    width: 34px;
+    height: 34px;
+  }
+
   .hud {
     flex-direction: column;
     align-items: stretch;

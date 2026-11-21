@@ -66,6 +66,7 @@ export const PIN_LAYOUT = (() => {
 export const ALLEY_PALETTE = {
   backdropTop: '#242b42',
   backdropMid: '#313a59',
+  backdropBottom: '#1d2236',
   woodLight: '#f3d29b',
   woodMid: '#e6be7c',
   woodDark: '#d8a862',
@@ -78,6 +79,7 @@ export const ALLEY_PALETTE = {
   bumperBase: '#ff6b57',
   bumperHighlight: '#ff9d7a',
   bumperGlow: '#ffe066',
+  bumperHitRing: '255, 232, 102',
   arrowFill: '#9b5d2b',
   ballPrimary: '#f5c430',
   ballSwirl: '#ffe47a',
@@ -87,4 +89,71 @@ export const ALLEY_PALETTE = {
   pinBody: '#fffdf8',
   pinShade: '#e5dfd3',
   pinStripe: '#e64949',
+  hoodFill: '#181c2b',
+  hoodAccent: '#ff9d7a',
+  hintText: 'rgba(92, 54, 24, 0.65)',
+  confetti: ['#ff6b57', '#ffd166', '#4ecdc4', '#5c9eff', '#b388ff', '#7ae582'],
 };
+
+export const COSMIC_PALETTE = {
+  backdropTop: '#060318',
+  backdropMid: '#120833',
+  backdropBottom: '#1b0c46',
+  woodLight: '#281863',
+  woodMid: '#1c1049',
+  woodDark: '#120a33',
+  woodSeam: 'rgba(0, 245, 255, 0.22)',
+  approachLight: '#231355',
+  approachDark: '#130935',
+  foulLine: '#ff2bd6',
+  foulLineGlow: 'rgba(255, 43, 214, 0.55)',
+  gutterBg: '#0b0520',
+  bumperBase: '#ff2bd6',
+  bumperHighlight: '#ff85ec',
+  bumperGlow: '#00f5ff',
+  bumperHitRing: '0, 245, 255',
+  arrowFill: '#00f5ff',
+  arrowGlow: 'rgba(0, 245, 255, 0.78)',
+  ballPrimary: '#00c8ff',
+  ballSwirl: '#a8fffd',
+  ballDark: '#5b1cff',
+  ballHighlight: 'rgba(255, 255, 255, 0.85)',
+  ballHole: '#140836',
+  ballAura: 'rgba(0, 245, 255, 0.45)',
+  pinBody: '#f4fcff',
+  pinShade: '#b8d8ff',
+  pinStripe: '#ff2bd6',
+  pinAura: 'rgba(0, 245, 255, 0.45)',
+  hoodFill: '#0b0522',
+  hoodAccent: '#00f5ff',
+  hoodAccent2: '#ff2bd6',
+  hintText: 'rgba(155, 248, 255, 0.85)',
+  confetti: ['#00f5ff', '#ff2bd6', '#b8ff3b', '#ffe600', '#a855f7', '#ff6b9d'],
+};
+
+export const DEFAULT_SCENE_ID = 'classic';
+
+export const SCENES = {
+  classic: {
+    id: 'classic',
+    name: 'Classic Alley',
+    shortName: 'Classic',
+    icon: '🎳',
+    tagline: 'Warm wood lanes',
+    themeColor: '#242b42',
+    palette: ALLEY_PALETTE,
+  },
+  cosmic: {
+    id: 'cosmic',
+    name: 'Cosmic Alley',
+    shortName: 'Cosmic',
+    icon: '🌌',
+    tagline: 'Neon glow lanes',
+    themeColor: '#060318',
+    palette: COSMIC_PALETTE,
+  },
+};
+
+export function getSceneConfig(sceneId) {
+  return SCENES[sceneId] || SCENES[DEFAULT_SCENE_ID];
+}

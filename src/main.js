@@ -2,8 +2,11 @@ import {
   APPROACH_MIN_Y,
   BALL_MAX_X,
   DEFAULT_LAUNCH_SPEED,
+  DEFAULT_SCENE_ID,
   FOUL_LINE_Y,
+  SCENES,
   TOTAL_FRAMES,
+  getSceneConfig,
 } from './catalog.js';
 import {
   createGame,
@@ -33,6 +36,7 @@ import {
 } from './audio.js';
 
 const BEST_SCORE_KEY = 'bouncy-bowling-best-v1';
+const SCENE_KEY = 'bouncy-bowling-scene-v1';
 const LEVIS_GAMES_URL = 'https://sofakodev.github.io/levis-games/';
 const $ = (sel) => document.querySelector(sel);
 
@@ -53,6 +57,47 @@ function writeBest(score) {
   }
 }
 
+function readScene() {
+  try {
+    const val = localStorage.getItem(SCENE_KEY);
+    return val && SCENES[val] ? val : DEFAULT_SCENE_ID;
+  } catch {
+    return DEFAULT_SCENE_ID;
+  }
+}
+
+function writeScene(sceneId) {
+  try {
+    localStorage.setItem(SCENE_KEY, sceneId);
+  } catch {
+    // Ignore storage errors
+  }
+}
+
+function renderScenePickerButtons(prefix) {
+  return Object.values(SCENES)
+    .map(
+      (scene) => `
+        <button
+          type="button"
+          class="scene-option scene-option-${scene.id}"
+          data-scene-choice="${scene.id}"
+          id="${prefix}-scene-${scene.id}"
+          aria-pressed="false"
+        >
+          <span class="scene-swatch scene-swatch-${scene.id}" aria-hidden="true">
+            <span class="scene-swatch-icon">${scene.icon}</span>
+          </span>
+          <span class="scene-meta">
+            <strong>${scene.name}</strong>
+            <small>${scene.tagline}</small>
+          </span>
+        </button>
+      `,
+    )
+    .join('');
+}
+
 function formatRollSymbol(frame, frameIdx, rollIdx) {
   const val = frame.rolls[rollIdx];
   if (val === undefined) return '';
@@ -69,7 +114,7 @@ function formatRollSymbol(frame, frameIdx, rollIdx) {
 }
 
 document.querySelector('#app').innerHTML = `
-  <main class="bowling-app">
+  <main class="bowling-app" id="bowling-app" data-scene="${DEFAULT_SCENE_ID}">
     <canvas id="game-canvas" aria-label="Bouncy Bowling alley"></canvas>
 
     <header class="hud" id="hud" hidden>
@@ -84,6 +129,7 @@ document.querySelector('#app').innerHTML = `
       </div>
       <div class="hud-actions">
         <a id="btn-home" href="${LEVIS_GAMES_URL}" aria-label="Back to Levi's Games" title="Back to Levi's Games">🏠</a>
+        <button id="btn-scene" type="button" aria-label="Switch alley scene" title="Switch alley scene">🌌</button>
         <button id="btn-sound" type="button" aria-pressed="true" aria-label="Toggle sound">🔊</button>
         <button id="btn-pause" type="button" aria-label="Pause">⏸</button>
       </div>
@@ -135,12 +181,15 @@ document.querySelector('#app').innerHTML = `
         <div class="logo-ball" aria-hidden="true"></div>
         <p class="kicker">BOUNCY BUMPER BOWLING</p>
         <h1>Bouncy Bowling</h1>
-        <p class="subtitle">10 frames of bouncy-bumper fun! Drag the ball at the bottom and flick up to knock down the pins.</p>
+        <p class="subtitle">10 frames of bouncy-bumper fun! Pick your alley, drag the ball at the bottom, and flick up.</p>
+        <div class="scene-picker" role="group" aria-label="Choose bowling alley scene">
+          ${renderScenePickerButtons('start')}
+        </div>
         <div class="stack-buttons">
           <button id="btn-play" class="btn-primary" type="button">Bowl!</button>
           <a class="btn-ghost" href="${LEVIS_GAMES_URL}">← Back to Levi's Games</a>
         </div>
-        <p class="controls-hint" id="start-best-hint">Drag in the bottom area (behind the red line) and flick up — or use Left/Right + Space.</p>
+        <p class="controls-hint" id="start-best-hint">Drag in the bottom area (behind the foul line) and flick up — or use Left/Right + Space.</p>
       </div>
     </section>
 
@@ -148,6 +197,9 @@ document.querySelector('#app').innerHTML = `
       <div class="card">
         <h2>Paused</h2>
         <p class="subtitle">Take a breather — the pins are waiting!</p>
+        <div class="scene-picker scene-picker-compact" role="group" aria-label="Choose bowling alley scene">
+          ${renderScenePickerButtons('pause')}
+        </div>
         <div class="stack-buttons">
           <button id="btn-resume" class="btn-primary" type="button">Keep Bowling</button>
           <button id="btn-restart-pause" class="btn-secondary" type="button">New Game</button>
@@ -176,10 +228,12 @@ const ctx = canvas.getContext('2d');
 
 let state = createGame();
 const confetti = createConfettiSystem();
+let currentScene = readScene();
 let soundEnabled = true;
 let width = window.innerWidth;
 let height = window.innerHeight;
 let lastTime = 0;
+let visualTime = 0;
 let rafId = 0;
 
 // Approach-zone pointer drag & flick state
@@ -198,7 +252,7 @@ function resize() {
   canvas.width = Math.round(width * dpr);
   canvas.height = Math.round(height * dpr);
   ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
-  renderGame(ctx, state, width, height, drag, confetti);
+  renderGame(ctx, state, width, height, drag, confetti, currentScene, visualTime);
 }
 
 window.addEventListener('resize', resize);
@@ -332,6 +386,39 @@ window.addEventListener('keydown', (e) => {
   }
 });
 
+function applyScene(sceneId) {
+  const scene = getSceneConfig(sceneId);
+  currentScene = scene.id;
+  writeScene(currentScene);
+
+  const appEl = $('#bowling-app');
+  if (appEl) appEl.dataset.scene = currentScene;
+
+  const themeMeta = document.querySelector('meta[name="theme-color"]');
+  if (themeMeta) themeMeta.setAttribute('content', scene.themeColor);
+
+  document.querySelectorAll('[data-scene-choice]').forEach((btn) => {
+    const isSelected = btn.dataset.sceneChoice === currentScene;
+    btn.classList.toggle('is-selected', isSelected);
+    btn.setAttribute('aria-pressed', String(isSelected));
+  });
+
+  const hudSceneBtn = $('#btn-scene');
+  if (hudSceneBtn) {
+    const nextScene = currentScene === 'cosmic' ? SCENES.classic : SCENES.cosmic;
+    hudSceneBtn.textContent = nextScene.icon;
+    hudSceneBtn.setAttribute('aria-label', `Switch to ${nextScene.name}`);
+    hudSceneBtn.setAttribute('title', `Switch to ${nextScene.name}`);
+  }
+
+  renderGame(ctx, state, width, height, drag, confetti, currentScene, visualTime);
+  if (needsAnimationLoop()) scheduleLoop();
+}
+
+function needsAnimationLoop() {
+  return state.phase === 'playing' || confetti.particles.length > 0 || currentScene === 'cosmic';
+}
+
 function syncUi() {
   const best = readBest();
   if (best > 0) {
@@ -410,8 +497,10 @@ function stopLoop() {
 
 function loop(now) {
   rafId = 0;
-  const dt = lastTime ? (now - lastTime) / 1000 : 0.016;
+  const rawDt = lastTime ? (now - lastTime) / 1000 : 0.016;
+  const dt = Math.min(Math.max(rawDt, 0), 0.05);
   lastTime = now;
+  visualTime += dt;
 
   if (state.phase === 'playing') {
     const events = stepGame(state, dt);
@@ -427,26 +516,26 @@ function loop(now) {
     if (events.rollComplete) {
       if (events.rollComplete.isTurkey) {
         playTurkey(soundEnabled);
-        spawnConfetti(confetti, 90, 0.5, 0.28);
+        spawnConfetti(confetti, 90, 0.5, 0.28, currentScene);
       } else if (events.rollComplete.isStrike) {
         playStrike(soundEnabled);
-        spawnConfetti(confetti, 55, 0.5, 0.28);
+        spawnConfetti(confetti, 55, 0.5, 0.28, currentScene);
       } else if (events.rollComplete.isSpare) {
         playSpare(soundEnabled);
-        spawnConfetti(confetti, 36, 0.5, 0.3);
+        spawnConfetti(confetti, 36, 0.5, 0.3, currentScene);
       }
     }
     if (events.gameComplete) {
       playGameFinish(soundEnabled);
-      spawnConfetti(confetti, 70, 0.5, 0.32);
+      spawnConfetti(confetti, 70, 0.5, 0.32, currentScene);
     }
     syncUi();
   }
 
   stepConfetti(confetti, dt, width, height);
-  renderGame(ctx, state, width, height, drag, confetti);
+  renderGame(ctx, state, width, height, drag, confetti, currentScene, visualTime);
 
-  if (state.phase === 'playing' || confetti.particles.length > 0) {
+  if (needsAnimationLoop()) {
     scheduleLoop();
   } else {
     lastTime = 0;
@@ -466,10 +555,20 @@ $('#btn-play').onclick = beginNewGame;
 $('#btn-play-again').onclick = beginNewGame;
 $('#btn-restart-pause').onclick = beginNewGame;
 
+document.querySelectorAll('[data-scene-choice]').forEach((btn) => {
+  btn.addEventListener('click', () => {
+    applyScene(btn.dataset.sceneChoice);
+  });
+});
+
+$('#btn-scene').onclick = () => {
+  applyScene(currentScene === 'cosmic' ? 'classic' : 'cosmic');
+};
+
 $('#btn-pause').onclick = () => {
   togglePause(state);
   syncUi();
-  if (state.phase === 'playing') scheduleLoop();
+  if (needsAnimationLoop()) scheduleLoop();
   else stopLoop();
 };
 
@@ -485,5 +584,6 @@ $('#btn-sound').onclick = () => {
   $('#btn-sound').setAttribute('aria-pressed', String(soundEnabled));
 };
 
+applyScene(currentScene);
 resize();
 syncUi();
