@@ -33,6 +33,7 @@ import {
 } from './audio.js';
 
 const BEST_SCORE_KEY = 'bouncy-bowling-best-v1';
+const LEVIS_GAMES_URL = 'https://sofakodev.github.io/levis-games/';
 const $ = (sel) => document.querySelector(sel);
 
 function readBest() {
@@ -82,6 +83,7 @@ document.querySelector('#app').innerHTML = `
         `).join('')}
       </div>
       <div class="hud-actions">
+        <a id="btn-home" href="${LEVIS_GAMES_URL}" aria-label="Back to Levi's Games" title="Back to Levi's Games">🏠</a>
         <button id="btn-sound" type="button" aria-pressed="true" aria-label="Toggle sound">🔊</button>
         <button id="btn-pause" type="button" aria-label="Pause">⏸</button>
       </div>
@@ -136,6 +138,7 @@ document.querySelector('#app').innerHTML = `
         <p class="subtitle">10 frames of bouncy-bumper fun! Drag the ball at the bottom and flick up to knock down the pins.</p>
         <div class="stack-buttons">
           <button id="btn-play" class="btn-primary" type="button">Bowl!</button>
+          <a class="btn-ghost" href="${LEVIS_GAMES_URL}">← Back to Levi's Games</a>
         </div>
         <p class="controls-hint" id="start-best-hint">Drag in the bottom area (behind the red line) and flick up — or use Left/Right + Space.</p>
       </div>
@@ -148,6 +151,7 @@ document.querySelector('#app').innerHTML = `
         <div class="stack-buttons">
           <button id="btn-resume" class="btn-primary" type="button">Keep Bowling</button>
           <button id="btn-restart-pause" class="btn-secondary" type="button">New Game</button>
+          <a class="btn-ghost" href="${LEVIS_GAMES_URL}">← Back to Levi's Games</a>
         </div>
       </div>
     </section>
@@ -160,6 +164,7 @@ document.querySelector('#app').innerHTML = `
         <p id="finish-summary" class="subtitle"></p>
         <div class="stack-buttons">
           <button id="btn-play-again" class="btn-primary" type="button">Play Again</button>
+          <a class="btn-ghost" href="${LEVIS_GAMES_URL}">← Back to Levi's Games</a>
         </div>
       </div>
     </section>
