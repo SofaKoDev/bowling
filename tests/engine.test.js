@@ -184,29 +184,64 @@ describe('physics and reset', () => {
     expect(state.standingAtRollStart).toBe(9);
   });
 
-  it('triggers TURKEY banner and event on 3 consecutive strikes and resets on non-strike', () => {
+  it('triggers TURKEY every 3rd consecutive strike and resets on Turkey or non-strike', () => {
     const state = newGame();
     let events = playRoll(state, 10);
     expect(events.flatMap((e) => e.rollComplete ?? [])[0]).toMatchObject({
       isStrike: true, isTurkey: false, strikeStreak: 1,
     });
+    expect(state.banner?.text).toBe('Strike!');
+
     events = playRoll(state, 10);
     expect(events.flatMap((e) => e.rollComplete ?? [])[0]).toMatchObject({
       isStrike: true, isTurkey: false, strikeStreak: 2,
     });
+    expect(state.banner?.text).toBe('Strike!');
+
     events = playRoll(state, 10);
     expect(events.flatMap((e) => e.rollComplete ?? [])[0]).toMatchObject({
       isStrike: true, isTurkey: true, strikeStreak: 3,
     });
+    expect(state.strikeStreak).toBe(0);
     expect(state.banner).toMatchObject({
       text: 'TURKEY!',
       subtext: '3 strikes in a row!',
       kind: 'turkey',
     });
+
+    // 4th and 5th consecutive strikes show normal Strike! banners
+    events = playRoll(state, 10);
+    expect(events.flatMap((e) => e.rollComplete ?? [])[0]).toMatchObject({
+      isStrike: true, isTurkey: false, strikeStreak: 1,
+    });
+    expect(state.banner?.text).toBe('Strike!');
+
+    events = playRoll(state, 10);
+    expect(events.flatMap((e) => e.rollComplete ?? [])[0]).toMatchObject({
+      isStrike: true, isTurkey: false, strikeStreak: 2,
+    });
+    expect(state.banner?.text).toBe('Strike!');
+
+    // 6th consecutive strike triggers a fresh TURKEY!
+    events = playRoll(state, 10);
+    expect(events.flatMap((e) => e.rollComplete ?? [])[0]).toMatchObject({
+      isStrike: true, isTurkey: true, strikeStreak: 3,
+    });
+    expect(state.strikeStreak).toBe(0);
+    expect(state.banner).toMatchObject({
+      text: 'TURKEY!',
+      subtext: '3 strikes in a row!',
+      kind: 'turkey',
+    });
+
+    // Non-strike resets streak cleanly
+    events = playRoll(state, 10);
+    expect(state.strikeStreak).toBe(1);
     events = playRoll(state, 4);
     expect(events.flatMap((e) => e.rollComplete ?? [])[0]).toMatchObject({
       isStrike: false, isTurkey: false, strikeStreak: 0,
     });
+    expect(state.strikeStreak).toBe(0);
   });
 
   it('expires the roll banner while aiming without another launch', () => {
@@ -273,7 +308,7 @@ describe('ten-frame scoring', () => {
     ['spare', [4, 6, 10], [10, 6, 10], 20],
     ['strike then partial rack', [10, 4, 6], [10, 10, 6], 20],
     ['strike then strike', [10, 10, 7], [10, 10, 10], 27],
-  ])('applies tenth-frame rack rules for %s', (_name, rolls, rackSizes, tenth, scores) => {
+  ])('applies tenth-frame rack rules for %s', (_name, rolls, rackSizes, tenth) => {
     const state = newGame();
     for (let frame = 0; frame < 8; frame++) {
       playRoll(state, 0);

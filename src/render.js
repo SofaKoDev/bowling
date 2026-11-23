@@ -6,6 +6,7 @@ import {
   FOUL_LINE_Y,
   LANE_ARROWS_Y,
   LANE_HALF_WIDTH,
+  MAX_LAUNCH_ANGLE_RAD,
   PIN_DECK_BACK_Y,
   PIN_DECK_FRONT_Y,
   getSceneConfig,
@@ -720,9 +721,12 @@ function drawAimGuide(ctx, state, geo, dragGuide, theme) {
   const { ball } = state;
   const vx = dragGuide.aimVx || 0;
   const vy = dragGuide.aimVy || -5.5;
-  const speed = Math.hypot(vx, vy) || 1;
-  const dx = vx / speed;
-  const dy = Math.min(-0.4, vy / speed);
+  const inputSpeed = Math.hypot(vx, vy);
+  const useDefault = vy >= 0 || !Number.isFinite(inputSpeed) || inputSpeed < 0.1;
+  const rawAngle = useDefault ? 0 : Math.atan2(vx, -vy);
+  const angle = Math.max(-MAX_LAUNCH_ANGLE_RAD, Math.min(MAX_LAUNCH_ANGLE_RAD, rawAngle));
+  const dx = Math.sin(angle);
+  const dy = -Math.cos(angle);
 
   // Dotted trajectory preview (including 1 bumper bounce!)
   let cx = ball.x;
@@ -758,37 +762,18 @@ function drawAimGuide(ctx, state, geo, dragGuide, theme) {
   ctx.restore();
 }
 
-function drawPopupsAndConfetti(ctx, state, geo, confetti, theme) {
-  if (state.popups && state.popups.length) {
-    for (const pop of state.popups) {
-      const pt = laneToScreen(pop.x, pop.y, geo);
-      const alpha = Math.max(0, 1 - pop.age / 1.1);
-      const rise = pop.age * 46;
-      ctx.save();
-      ctx.globalAlpha = alpha;
-      ctx.font = '900 22px ui-rounded, system-ui, sans-serif';
-      ctx.textAlign = 'center';
-      ctx.lineWidth = 4;
-      ctx.strokeStyle = theme.isCosmic ? 'rgba(10, 4, 32, 0.95)' : 'rgba(255,255,255,0.95)';
-      ctx.strokeText(pop.text, pt.sx, pt.sy - rise);
-      ctx.fillStyle = pop.accent || (theme.isCosmic ? '#00f5ff' : '#ff6b57');
-      ctx.fillText(pop.text, pt.sx, pt.sy - rise);
-      ctx.restore();
-    }
-  }
-
-  if (confetti && confetti.particles.length) {
-    for (const p of confetti.particles) {
-      if (!p.initialized) continue;
-      const alpha = Math.max(0, 1 - p.age / p.life);
-      ctx.save();
-      ctx.globalAlpha = alpha;
-      ctx.translate(p.x, p.y);
-      ctx.rotate(p.rot);
-      ctx.fillStyle = p.color;
-      ctx.fillRect(-p.size / 2, -p.size * 0.35, p.size, p.size * 0.7);
-      ctx.restore();
-    }
+function drawConfetti(ctx, confetti) {
+  if (!confetti || !confetti.particles.length) return;
+  for (const p of confetti.particles) {
+    if (!p.initialized) continue;
+    const alpha = Math.max(0, 1 - p.age / p.life);
+    ctx.save();
+    ctx.globalAlpha = alpha;
+    ctx.translate(p.x, p.y);
+    ctx.rotate(p.rot);
+    ctx.fillStyle = p.color;
+    ctx.fillRect(-p.size / 2, -p.size * 0.35, p.size, p.size * 0.7);
+    ctx.restore();
   }
 }
 
@@ -832,5 +817,5 @@ export function renderGame(
     else drawBall(ctx, d.item, geo, theme);
   }
 
-  drawPopupsAndConfetti(ctx, state, geo, confetti, theme);
+  drawConfetti(ctx, confetti);
 }
