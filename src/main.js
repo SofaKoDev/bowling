@@ -37,6 +37,7 @@ import {
 
 const BEST_SCORE_KEY = 'bouncy-bowling-best-v1';
 const SCENE_KEY = 'bouncy-bowling-scene-v1';
+const SOUND_KEY = 'bouncy-bowling-sound-v1';
 const LEVIS_GAMES_URL = 'https://sofakodev.github.io/levis-games/';
 const $ = (sel) => document.querySelector(sel);
 
@@ -74,6 +75,23 @@ function writeScene(sceneId) {
   }
 }
 
+function readSound() {
+  try {
+    const val = localStorage.getItem(SOUND_KEY);
+    return val === null ? true : val !== 'false';
+  } catch {
+    return true;
+  }
+}
+
+function writeSound(enabled) {
+  try {
+    localStorage.setItem(SOUND_KEY, String(enabled));
+  } catch {
+    // Ignore storage errors
+  }
+}
+
 function renderScenePickerButtons(prefix) {
   return Object.values(SCENES)
     .map(
@@ -106,10 +124,10 @@ function formatRollSymbol(frame, frameIdx, rollIdx) {
     if (rollIdx === 1 && frame.rolls[0] + val === 10) return '/';
     return val === 0 ? '–' : String(val);
   }
-  // 10th frame formatting
-  if (val === 10) return 'X';
+  // 10th frame formatting: check spare conditions before strike so [0, 10, 5] -> "– / 5" and [10, 0, 10] -> "X – /"
   if (rollIdx === 1 && frame.rolls[0] < 10 && frame.rolls[0] + val === 10) return '/';
-  if (rollIdx === 2 && frame.rolls[1] < 10 && frame.rolls[1] + val === 10 && frame.rolls[0] === 10) return '/';
+  if (rollIdx === 2 && frame.rolls[0] === 10 && frame.rolls[1] < 10 && frame.rolls[1] + val === 10) return '/';
+  if (val === 10) return 'X';
   return val === 0 ? '–' : String(val);
 }
 
@@ -226,10 +244,38 @@ document.querySelector('#app').innerHTML = `
 const canvas = $('#game-canvas');
 const ctx = canvas.getContext('2d');
 
+// Cached DOM nodes to avoid repeated querySelector work
+const ui = {
+  app: $('#bowling-app'),
+  themeMeta: document.querySelector('meta[name="theme-color"]'),
+  hud: $('#hud'),
+  overlayStart: $('#overlay-start'),
+  overlayPause: $('#overlay-pause'),
+  overlayFinish: $('#overlay-finish'),
+  startBestHint: $('#start-best-hint'),
+  banner: $('#celebration-banner'),
+  bannerTurkey: $('#banner-turkey'),
+  bannerTitle: $('#banner-title'),
+  bannerSub: $('#banner-sub'),
+  finishKicker: $('#finish-kicker'),
+  finishTitle: $('#finish-title'),
+  finishScore: $('#finish-score'),
+  finishSummary: $('#finish-summary'),
+  btnScene: $('#btn-scene'),
+  btnSound: $('#btn-sound'),
+  sceneChoiceBtns: Array.from(document.querySelectorAll('[data-scene-choice]')),
+  frames: Array.from({ length: TOTAL_FRAMES }, (_, i) => ({
+    cell: document.querySelector(`.frame-cell[data-frame="${i}"]`),
+    rolls: $(`#frame-rolls-${i}`),
+    total: $(`#frame-total-${i}`),
+  })),
+};
+
 let state = createGame();
 const confetti = createConfettiSystem();
+let bestScore = readBest();
 let currentScene = readScene();
-let soundEnabled = true;
+let soundEnabled = readSound();
 let width = window.innerWidth;
 let height = window.innerHeight;
 let lastTime = 0;
@@ -292,6 +338,7 @@ function triggerLaunch(vx, vy) {
   const launched = launchBall(state, vx, vy);
   if (launched) {
     playRollStart(soundEnabled);
+    syncUi();
   }
   drag.active = false;
   drag.pointerId = null;
@@ -381,34 +428,38 @@ window.addEventListener('keydown', (e) => {
     e.preventDefault();
     moveBallInApproach(state, Math.min(BALL_MAX_X, state.ball.x + 0.14), state.ball.y);
   } else if (e.code === 'Space' || e.code === 'Enter') {
+    const activeEl = document.activeElement;
+    if (activeEl && activeEl.matches('button, a, input, select, textarea')) return;
     e.preventDefault();
     triggerLaunch(0, -DEFAULT_LAUNCH_SPEED);
   }
 });
+
+function syncSoundButton() {
+  if (!ui.btnSound) return;
+  ui.btnSound.textContent = soundEnabled ? '🔊' : '🔇';
+  ui.btnSound.setAttribute('aria-pressed', String(soundEnabled));
+}
 
 function applyScene(sceneId) {
   const scene = getSceneConfig(sceneId);
   currentScene = scene.id;
   writeScene(currentScene);
 
-  const appEl = $('#bowling-app');
-  if (appEl) appEl.dataset.scene = currentScene;
+  if (ui.app) ui.app.dataset.scene = currentScene;
+  if (ui.themeMeta) ui.themeMeta.setAttribute('content', scene.themeColor);
 
-  const themeMeta = document.querySelector('meta[name="theme-color"]');
-  if (themeMeta) themeMeta.setAttribute('content', scene.themeColor);
-
-  document.querySelectorAll('[data-scene-choice]').forEach((btn) => {
+  for (const btn of ui.sceneChoiceBtns) {
     const isSelected = btn.dataset.sceneChoice === currentScene;
     btn.classList.toggle('is-selected', isSelected);
     btn.setAttribute('aria-pressed', String(isSelected));
-  });
+  }
 
-  const hudSceneBtn = $('#btn-scene');
-  if (hudSceneBtn) {
+  if (ui.btnScene) {
     const nextScene = currentScene === 'cosmic' ? SCENES.classic : SCENES.cosmic;
-    hudSceneBtn.textContent = nextScene.icon;
-    hudSceneBtn.setAttribute('aria-label', `Switch to ${nextScene.name}`);
-    hudSceneBtn.setAttribute('title', `Switch to ${nextScene.name}`);
+    ui.btnScene.textContent = nextScene.icon;
+    ui.btnScene.setAttribute('aria-label', `Switch to ${nextScene.name}`);
+    ui.btnScene.setAttribute('title', `Switch to ${nextScene.name}`);
   }
 
   renderGame(ctx, state, width, height, drag, confetti, currentScene, visualTime);
@@ -420,24 +471,22 @@ function needsAnimationLoop() {
 }
 
 function syncUi() {
-  const best = readBest();
-  if (best > 0) {
-    $('#start-best-hint').textContent = `Best Score: ${best} · Drag at the bottom & flick up to roll!`;
+  if (bestScore > 0) {
+    ui.startBestHint.textContent = `Best Score: ${bestScore} · Drag at the bottom & flick up to roll!`;
   }
 
-  $('#hud').hidden = state.phase === 'ready';
-  $('#overlay-start').hidden = state.phase !== 'ready';
-  $('#overlay-pause').hidden = state.phase !== 'paused';
-  $('#overlay-finish').hidden = state.phase !== 'finished';
+  ui.hud.hidden = state.phase === 'ready';
+  ui.overlayStart.hidden = state.phase !== 'ready';
+  ui.overlayPause.hidden = state.phase !== 'paused';
+  ui.overlayFinish.hidden = state.phase !== 'finished';
 
   // Sync 10-frame scoreboard
   for (let i = 0; i < TOTAL_FRAMES; i++) {
     const frame = state.frames[i];
-    const cell = document.querySelector(`.frame-cell[data-frame="${i}"]`);
+    const { cell, rolls: rollsEl, total: totalEl } = ui.frames[i];
     if (cell) {
       cell.classList.toggle('active', state.phase === 'playing' && i === state.currentFrame);
     }
-    const rollsEl = $(`#frame-rolls-${i}`);
     if (rollsEl && frame) {
       const slots = i === 9 ? 3 : 2;
       let html = '';
@@ -448,38 +497,36 @@ function syncUi() {
       }
       rollsEl.innerHTML = html;
     }
-    const totalEl = $(`#frame-total-${i}`);
     if (totalEl && frame) {
       totalEl.textContent = frame.cumulativeScore !== null ? String(frame.cumulativeScore) : '';
     }
   }
 
-  // Sync celebration banner (including big TURKEY! on 3+ strikes in a row)
-  const bannerEl = $('#celebration-banner');
-  const turkeyEl = $('#banner-turkey');
+  // Sync celebration banner (including big TURKEY! on 3 consecutive strikes)
   if (state.banner) {
     const isTurkey = state.banner.kind === 'turkey';
-    bannerEl.hidden = false;
-    bannerEl.classList.toggle('is-turkey', isTurkey);
-    if (turkeyEl) turkeyEl.hidden = !isTurkey;
-    $('#banner-title').textContent = state.banner.text;
-    $('#banner-sub').textContent = state.banner.subtext || '';
+    ui.banner.hidden = false;
+    ui.banner.classList.toggle('is-turkey', isTurkey);
+    if (ui.bannerTurkey) ui.bannerTurkey.hidden = !isTurkey;
+    ui.bannerTitle.textContent = state.banner.text;
+    ui.bannerSub.textContent = state.banner.subtext || '';
   } else {
-    bannerEl.hidden = true;
-    bannerEl.classList.remove('is-turkey');
-    if (turkeyEl) turkeyEl.hidden = true;
+    ui.banner.hidden = true;
+    ui.banner.classList.remove('is-turkey');
+    if (ui.bannerTurkey) ui.bannerTurkey.hidden = true;
   }
 
   if (state.phase === 'finished') {
     let isNewBest = false;
-    if (state.totalScore > best) {
-      writeBest(state.totalScore);
+    if (state.totalScore > bestScore) {
+      bestScore = state.totalScore;
+      writeBest(bestScore);
       isNewBest = true;
     }
-    $('#finish-kicker').textContent = isNewBest ? 'NEW HIGH SCORE!' : 'ALL 10 FRAMES DONE!';
-    $('#finish-title').textContent = state.totalScore >= 150 ? 'Bowling Superstar!' : 'Great Bowling!';
-    $('#finish-score').textContent = String(state.totalScore);
-    $('#finish-summary').textContent = `You bowled all 10 frames and scored ${state.totalScore} points!`;
+    ui.finishKicker.textContent = isNewBest ? 'NEW HIGH SCORE!' : 'ALL 10 FRAMES DONE!';
+    ui.finishTitle.textContent = state.totalScore >= 150 ? 'Bowling Superstar!' : 'Great Bowling!';
+    ui.finishScore.textContent = String(state.totalScore);
+    ui.finishSummary.textContent = `You bowled all 10 frames and scored ${state.totalScore} points!`;
   }
 }
 
@@ -503,6 +550,9 @@ function loop(now) {
   visualTime += dt;
 
   if (state.phase === 'playing') {
+    const prevBanner = state.banner;
+    const prevFrame = state.currentFrame;
+    const prevPhase = state.phase;
     const events = stepGame(state, dt);
 
     if (events.bumperHits?.length) {
@@ -529,7 +579,17 @@ function loop(now) {
       playGameFinish(soundEnabled);
       spawnConfetti(confetti, 70, 0.5, 0.32, currentScene);
     }
-    syncUi();
+
+    if (
+      events.rollComplete ||
+      events.frameComplete ||
+      events.gameComplete ||
+      state.banner !== prevBanner ||
+      state.currentFrame !== prevFrame ||
+      state.phase !== prevPhase
+    ) {
+      syncUi();
+    }
   }
 
   stepConfetti(confetti, dt, width, height);
@@ -555,13 +615,13 @@ $('#btn-play').onclick = beginNewGame;
 $('#btn-play-again').onclick = beginNewGame;
 $('#btn-restart-pause').onclick = beginNewGame;
 
-document.querySelectorAll('[data-scene-choice]').forEach((btn) => {
+for (const btn of ui.sceneChoiceBtns) {
   btn.addEventListener('click', () => {
     applyScene(btn.dataset.sceneChoice);
   });
-});
+}
 
-$('#btn-scene').onclick = () => {
+ui.btnScene.onclick = () => {
   applyScene(currentScene === 'cosmic' ? 'classic' : 'cosmic');
 };
 
@@ -578,12 +638,13 @@ $('#btn-resume').onclick = () => {
   scheduleLoop();
 };
 
-$('#btn-sound').onclick = () => {
+ui.btnSound.onclick = () => {
   soundEnabled = !soundEnabled;
-  $('#btn-sound').textContent = soundEnabled ? '🔊' : '🔇';
-  $('#btn-sound').setAttribute('aria-pressed', String(soundEnabled));
+  writeSound(soundEnabled);
+  syncSoundButton();
 };
 
+syncSoundButton();
 applyScene(currentScene);
 resize();
 syncUi();

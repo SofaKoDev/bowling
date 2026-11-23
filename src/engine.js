@@ -94,7 +94,6 @@ export function createGame({ seed = 20261121 } = {}) {
     settleTimer: 0,
     resetTimer: 0,
     banner: null,
-    popups: [],
   };
 }
 
@@ -281,8 +280,9 @@ function scoreRoll(state, events) {
   const freshRack = rollIndex === 0 || previousRoll === 10 || (rollIndex === 2 && frame.isSpare);
   const isStrike = freshRack && pinsThisRoll === 10;
   const isSpare = !freshRack && countStanding(state) === 0;
-  state.strikeStreak = isStrike ? (state.strikeStreak || 0) + 1 : 0;
-  const isTurkey = isStrike && state.strikeStreak >= 3;
+  const nextStreak = isStrike ? (state.strikeStreak || 0) + 1 : 0;
+  const isTurkey = isStrike && nextStreak === 3;
+  state.strikeStreak = isTurkey ? 0 : nextStreak;
   frame.rolls.push(pinsThisRoll);
   if (rollIndex === 0) frame.isStrike = isStrike;
   if (rollIndex === 1 && !frame.isStrike) frame.isSpare = isSpare;
@@ -294,12 +294,12 @@ function scoreRoll(state, events) {
     isStrike,
     isSpare,
     isTurkey,
-    strikeStreak: state.strikeStreak,
+    strikeStreak: nextStreak,
   };
   state.banner = {
     text: isTurkey ? 'TURKEY!' : isStrike ? 'Strike!' : isSpare ? 'Spare!' : pinsThisRoll ? 'Nice roll!' : 'Keep rolling!',
     subtext: isTurkey
-      ? `${state.strikeStreak} strikes in a row!`
+      ? `${nextStreak} strikes in a row!`
       : pinsThisRoll === 1
         ? '1 pin down'
         : `${pinsThisRoll} pins down`,
